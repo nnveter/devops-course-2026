@@ -13,3 +13,4 @@
 - Python
 - Docker (скоро)
 - CI/CD (позже)
+# Multi-remote test
