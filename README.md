@@ -12,3 +12,4 @@
 - Git / GitHub
 - Python
 - Docker (скоро)
+- CI/CD (позже)
