@@ -144,3 +144,40 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048   -keyout /etc/ssl/priv
 Конфигурация ресурса — блок перенаправления HTTP → HTTPS (`return 301`) и блок HTTPS
 (`listen 443 ssl`, `ssl_protocols TLSv1.2 TLSv1.3`, `root /var/www/devops-site`, `error_page 404 /404.html`).
 Полный текст хранится в репозитории: `nginx/devops-site`. Применение: `sudo nginx -t && sudo systemctl reload nginx`.
+
+## 9. Контейнеризация
+
+| Параметр | Значение |
+|---|---|
+| Docker Engine | из официального репозитория `download.docker.com` (пакеты `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-compose-plugin`), Engine 29.9.3, Compose v5.7.0 |
+| Группа `docker` | `devops` (имеет и `sudo`; учётные записи без sudo в группу не добавляются) |
+| Проект на сервере | `~/app` (доставка: `rsync -avz --delete --exclude=.env app/ devops:app/`) |
+| Файл секретов | `~/app/.env`, владелец `devops`, права 600, создаётся только на сервере из `.env.example`, пароль — `openssl rand -hex 16` |
+| Публикация портов | `app`: `127.0.0.1:5000 -> 5000`; `db` (5432) не публикуется |
+| Сеть | пользовательская bridge-сеть `app_backend`; приложение обращается к СУБД по имени `db` |
+| Тома | `app_db_data` → `/var/lib/postgresql/data` |
+| Перезапуск | `restart: unless-stopped` для обоих сервисов |
+
+Установка Docker Engine:
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable"   | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker devops
+```
+
+Запуск: `cd ~/app && docker compose up -d --build`.
+
+Обратный прокси (блок HTTPS в `/etc/nginx/sites-available/devops-site`):
+
+```nginx
+location /app/ {
+    proxy_pass http://127.0.0.1:5000/;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
