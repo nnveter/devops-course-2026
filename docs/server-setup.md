@@ -122,3 +122,25 @@ FQDN узла: `127.0.1.1 devops-vm.devops.local devops-vm` в `/etc/hosts` (и 
 | `05-docker-compose` | приложение + PostgreSQL (ПР № 7) |
 | `06-before-kr2` | перед КР № 2 |
 | `07-kr2` | после КР № 2 |
+
+## 8. Веб-сервер
+
+| Параметр | Значение |
+|---|---|
+| Пакет | `nginx` (Ubuntu, `apt install -y nginx`), версия 1.18.0 |
+| Конфигурация ресурса | `/etc/nginx/sites-available/devops-site`, ссылка в `/etc/nginx/sites-enabled/`; ссылка на `default` удалена |
+| Каталог ресурса | `/var/www/devops-site`, владелец `devops:devops`, каталоги 755, файлы 644 |
+| Сертификат | `/etc/ssl/certs/devops.crt`, `root:root`, 644, CN и SAN `devops.local`, срок 365 дней |
+| Закрытый ключ | `/etc/ssl/private/devops.key`, `root:root`, 600 |
+| Журналы | `/var/log/nginx/devops-site.access.log`, `/var/log/nginx/devops-site.error.log` |
+| Доставка | `scripts/deploy.sh` (rsync `--delete --chmod=D755,F644`) |
+
+Формирование сертификата:
+
+```bash
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048   -keyout /etc/ssl/private/devops.key   -out /etc/ssl/certs/devops.crt   -subj "/CN=devops.local"   -addext "subjectAltName=DNS:devops.local"
+```
+
+Конфигурация ресурса — блок перенаправления HTTP → HTTPS (`return 301`) и блок HTTPS
+(`listen 443 ssl`, `ssl_protocols TLSv1.2 TLSv1.3`, `root /var/www/devops-site`, `error_page 404 /404.html`).
+Полный текст хранится в репозитории: `nginx/devops-site`. Применение: `sudo nginx -t && sudo systemctl reload nginx`.
