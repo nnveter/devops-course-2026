@@ -1,2 +1,10 @@
-# devops-course-2026
-DevOps course 2026 — Salnikov Ilya, EFBO-11-24
+# DevOps Course 2026
+Учебный репозиторий курса "Инструменты DevOps".
+
+## Автор
+Сальников Илья Андреевич, группа ЭФБО-11-24
+
+## Стек
+- Git / GitHub
+- Python
+- Docker (скоро)
