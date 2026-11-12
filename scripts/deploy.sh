@@ -7,8 +7,10 @@ REMOTE="devops"                       # псевдоним из ~/.ssh/config (�
 REMOTE_DIR="/var/www/devops-site"
 SITE_URL="https://devops.local"
 CA_CERT="${HOME}/devops.crt"
-REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"   # работает из любого каталога
-LOCAL_DIR="${REPO_ROOT}/site/"
+# Работа из любого каталога: переходим в корень репозитория. Путь site/ задаётся относительно него:
+# в Git Bash --show-toplevel возвращает путь вида F:/..., который rsync принял бы за удалённый узел «F».
+cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+LOCAL_DIR="site/"
 SSH_OPTS="ssh -o BatchMode=yes -o ConnectTimeout=5"                  # без интерактивного пароля
 
 # 1. Разбор аргумента --dry-run
@@ -24,9 +26,9 @@ if [[ ! -f "${LOCAL_DIR}index.html" ]]; then
   echo "Ошибка: ${LOCAL_DIR}index.html не найден — доставка отменена" >&2
   exit 1
 fi
-if [[ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]]; then
+if [[ -n "$(git status --porcelain)" ]]; then
   echo "Ошибка: в репозитории есть незафиксированные изменения — доставка отменена" >&2
-  git -C "$REPO_ROOT" status --short >&2
+  git status --short >&2
   exit 1
 fi
 
@@ -45,4 +47,4 @@ if ! curl -fsS --max-time 5 --cacert "$CA_CERT" -o /dev/null "$SITE_URL/"; then
   echo "Ошибка: ресурс $SITE_URL недоступен после доставки" >&2
   exit 1
 fi
-echo "Доставлен коммит $(git -C "$REPO_ROOT" rev-parse --short HEAD)"
+echo "Доставлен коммит $(git rev-parse --short HEAD)"
