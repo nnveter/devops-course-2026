@@ -1,0 +1,6 @@
+---
+app_image: "ghcr.io/nnveter/devops-ci-app"
+app_tag: "1145fab90d171a1bb105fe27c574e578f210c947"
+app_container_name: "devops-ci-app"
+app_host_port: 5000
+app_internal_port: 5000

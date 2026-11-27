@@ -181,3 +181,41 @@ location /app/ {
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
+
+## 10. Ansible
+
+Конфигурация VM и развёртывание приложения описаны декларативно в каталоге
+`ansible/` этого репозитория (ПР № 11).
+
+| Параметр | Значение |
+|---|---|
+| Управляющий узел | WSL Ubuntu на хосте, Ansible (ansible-core 2.20), коллекции из `ansible/requirements.yml` |
+| Управляемый узел | `devops-vm`, Ubuntu Server 22.04, Host-only `192.168.57.23`, SSH порт 22 |
+| Inventory первичного запуска | `inventory/bootstrap.ini` — `student`, вход по паролю (`--ask-pass --ask-become-pass`, нужен `sshpass`) |
+| Inventory рабочих запусков | `inventory/prod.ini` (по умолчанию из `ansible.cfg`) — `devops`, ключ `~/.ssh/devops_vm`, sudo NOPASSWD |
+| Образ | `ghcr.io/nnveter/devops-ci-app` (публичный пакет GHCR) |
+| Версия | полный SHA в `group_vars/all.yml` → `app_tag` (сейчас `1145fab90d171a1bb105fe27c574e578f210c947`) |
+| Порт контейнера | `127.0.0.1:5000 → 5000/tcp` (только loopback, наружу через Nginx :80) |
+| Health endpoint | `http://127.0.0.1:5000/health` на VM, `http://192.168.57.23/health` снаружи |
+
+Роли (выполняются в этом порядке):
+
+- `base` — проверка ОС, базовые пакеты, `python3-debian`/`python3-requests`, официальный репозиторий Docker, Docker Engine;
+- `ssh` — пользователь `devops`, ключ, sudoers, `00-ansible-hardening.conf` (пароли и вход root запрещены), UFW: 22 и 80;
+- `nginx` — reverse proxy на `127.0.0.1:5000`, стандартный сайт отключён, `nginx -t` перед reload;
+- `app` — загрузка образа по SHA, контейнер `devops-ci-app` (`unless-stopped`), ожидание `/health`.
+
+Команды (из каталога `ansible/`):
+
+```bash
+# первичный запуск на чистой VM (пароль student вводится интерактивно)
+ansible-playbook -i inventory/bootstrap.ini site.yml --ask-pass --ask-become-pass
+# повторные запуски и устранение drift (ожидается changed=0 без drift)
+ansible-playbook site.yml
+# read-only аудит: sshd -T, состояние контейнера, /health
+ansible-playbook verify.yml
+```
+
+`ansible.cfg` содержит `force_handlers = True`: уведомлённые handlers SSH/Nginx
+выполняются даже при отказе более поздней задачи. Пароли и закрытые ключи в
+репозиторий не помещаются.
